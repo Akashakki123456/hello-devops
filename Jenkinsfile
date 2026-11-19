@@ -33,5 +33,30 @@ pipeline {
                 }
             }
         }
+
+        stage('Kubernetes Connection Test') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'k8s-deploy-token', variable: 'K8S_TOKEN'),
+                    string(credentialsId: 'k8s-ca-cert', variable: 'K8S_CA')
+                ]) {
+                    sh '''
+                        set +x
+                        CA_FILE=$(mktemp)
+                        trap 'rm -f "$CA_FILE"' EXIT
+
+                        printf '%s\\n' "$K8S_CA" > "$CA_FILE"
+                        chmod 600 "$CA_FILE"
+
+                        curl --silent --show-error \
+                            --cacert "$CA_FILE" \
+                            -H "Authorization: Bearer $K8S_TOKEN" \
+                            https://192.168.102.152:6443/apis/apps/v1/namespaces/hello-devops/deployments \
+                            -o /dev/null \
+                            -w "HTTP Status: %{http_code}\\n"
+                    '''
+                }
+            }
+        }
     }
 }
